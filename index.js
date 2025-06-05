@@ -125,6 +125,40 @@ app.get('/api/v1/ads/get-by-owner/:ownerId', async (req, res) => {
     }
 });
 
+// API lấy danh sách Ads
+app.get('/api/v1/ads/get-by-collection/:collection_id', async (req, res) => {
+    try {
+        const { collection_id } = req.params;
+        const query = `SELECT a.id,
+            a.name,
+            a.type,
+            a.short_description,
+            a.description,
+            a.image_url,
+            a.seller_id,
+            u.name AS seller_name,
+            a.location_distance,
+            a.status,
+            a.created_date,
+            a.collection_id,
+            c.name AS collection_name
+        FROM ads a 
+        INNER JOIN collections c ON a.collection_id = c.id 
+        INNER JOIN users u ON a.seller_id = u.id 
+        WHERE a.collection_id = $1
+            AND a.status = 'Active'
+        ORDER BY created_date DESC`;
+
+        const values = [collection_id];
+        const result = await pool.query(query, values);
+
+        res.json({ Success: true, Data: result.rows });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ Success: false, Message: 'Internal server error' });
+    }
+});
+
 // API lấy thông tin chi tiết của một Ads
 app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
     const { id } = req.params;
