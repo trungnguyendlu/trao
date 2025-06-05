@@ -13,6 +13,9 @@ const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    ssl: {
+        rejectUnauthorized: false, // Bypass certificate validation (use cautiously in production)
+    },
 });
 
 // Middleware để parse JSON
@@ -91,7 +94,24 @@ app.post('/api/v1/ads', async (req, res) => {
 // API lấy danh sách Ads
 app.get('/api/v1/ads/get-all', async (req, res) => {
     try {
-        const query = `SELECT * FROM ads a INNER JOIN collections c ON a.collection_id = c.id INNER JOIN users u ON a.sellerid = u.id ORDER BY created_at DESC`;
+        const query = `SELECT a.id,
+            a.name,
+            a.type,
+            a.short_description,
+            a.description,
+            a.image_url,
+            a.seller_id,
+            u.name AS seller_name,
+            a.location_distance,
+            a.status,
+            a.created_date,
+            a.collection_id,
+            c.name AS collection_name
+        FROM ads a 
+        INNER JOIN collections c ON a.collection_id = c.id 
+        INNER JOIN users u ON a.seller_id = u.id 
+        ORDER BY created_date DESC`;
+
         const result = await pool.query(query);
 
         res.json({ Success: true, Data: result.rows });
