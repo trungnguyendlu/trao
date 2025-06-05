@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-const bodyParser = require('body-parser');
 
 const app = express();
 const port = 3000;
@@ -139,19 +138,22 @@ app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
                 ads.image_url,
                 ads.name AS seller_name,
                 ads.location_distance,
-                (select count(1) from offers where ads_id = ads.id) AS total_offer,
+                (select count(1) from offers where target_ads_id = ads.id) AS total_offer,
                 json_agg(
                     json_build_object(
                         'id', offers.id,
-                        'ads_name', ads.name,
+                        'ads_id', a2.id,
+                        'ads_name', a2.name,
+                        'image_url', a2.image_url,
                         'owner_name', users.name,
                         'created_date', offers.created_date,
                         'status', offers.status
                     )
                 ) AS offers
             FROM ads
-            LEFT JOIN offers ON ads.id = offers.ads_id
-			LEFT JOIN users ON offers.owner_id = users.id
+            LEFT JOIN offers ON ads.id = offers.target_ads_id
+            LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+            LEFT JOIN users ON offers.owner_id = users.id
             WHERE ads.id = $1
             GROUP BY ads.id
             ORDER BY ads.created_date ASC`;
@@ -174,30 +176,41 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
     const { collectionId } = req.params;
 
     try {
-        const query = `SELECT 
-                ads.id,
-                ads.name,
-                ads.short_description,
-                ads.description,
-                ads.image_url,
-                ads.name AS seller_name,
-                ads.location_distance,
-                (select count(1) from offers where ads_id = ads.id) AS total_offer,
-                json_agg(
-                    json_build_object(
-                        'Id', offers.id,
-                        'AdsName', ads.name,
-                        'OwnerName', users.name,
-                        'CreatedDate', offers.created_date,
-                        'Status', offers.status
-                    )
-                ) AS offers
-            FROM ads
-            LEFT JOIN offers ON ads.id = offers.ads_id
-			LEFT JOIN users ON offers.owner_id = users.id
-            WHERE ads.collection_id = $1
-            GROUP BY ads.id
-            ORDER BY ads.created_date ASC
+        const query = 
+            `SELECT * 
+            FROM 
+            (
+                SELECT ROW_NUMBER() OVER (ORDER BY ads.created_date DESC) AS row_num,
+                    ads.id,
+                    ads.name,
+                    ads.short_description,
+                    ads.description,
+                    ads.image_url,
+                    ads.name AS seller_name,
+                    ads.location_distance,
+                    (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
+                    (
+                        SELECT json_agg(
+                            json_build_object(
+                                'id', offers.id,
+                                'ads_id', a2.id,
+                                'ads_name', a2.name,
+                                'image_url', a2.image_url,
+                                'owner_name', users.name,
+                                'created_date', offers.created_date,
+                                'status', offers.status
+                            )
+                        )
+                        FROM offers
+                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+                        LEFT JOIN users ON offers.owner_id = users.id
+                        WHERE target_ads_id = ads.id
+                    ) AS offers
+                FROM ads
+                WHERE ads.collection_id = $1
+                ORDER BY ads.created_date ASC
+            )
+            ORDER BY row_num ASC
             LIMIT 1;`;
         const values = [collectionId];
         const result = await pool.query(query, values);
@@ -222,29 +235,34 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
         FROM
         (
             SELECT ROW_NUMBER() OVER (ORDER BY ads.created_date DESC) AS row_num,
-                        ads.id,
-                        ads.name,
-                        ads.short_description,
-                        ads.description,
-                        ads.image_url,
-                        ads.name AS seller_name,
-                        ads.location_distance,
-                        (select count(1) from offers where ads_id = ads.id) AS total_offer,
-                        json_agg(
-                            json_build_object(
-                                'Id', offers.id,
-                                'AdsName', ads.name,
-                                'OwnerName', users.name,
-                                'CreatedDate', offers.created_date,
-                                'Status', offers.status
-                            )
-                        ) AS offers
-                    FROM ads
-                    LEFT JOIN offers ON ads.id = offers.ads_id
+                ads.id,
+                ads.name,
+                ads.short_description,
+                ads.description,
+                ads.image_url,
+                ads.name AS seller_name,
+                ads.location_distance,
+                (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', offers.id,
+                            'ads_id', a2.id,
+                            'ads_name', a2.name,
+                            'image_url', a2.image_url,
+                            'owner_name', users.name,
+                            'created_date', offers.created_date,
+                            'status', offers.status
+                        )
+                    )
+                    FROM offers
+                    LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
                     LEFT JOIN users ON offers.owner_id = users.id
-                    WHERE ads.collection_id = $1
-                    GROUP BY ads.id
-                    ORDER BY ads.created_date ASC
+                    WHERE target_ads_id = ads.id
+                ) AS offers
+                FROM ads
+            WHERE ads.collection_id = $1
+            ORDER BY ads.created_date ASC
         )
         WHERE row_num > $2
         LIMIT 1;`;
@@ -265,11 +283,10 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
 
 // POST endpoint to create an offer
 app.post('/api/v1/offer', async (req, res) => {
-    console.log('Request Body:', req.body);
-    const { AdsId, OwnerId, Status } = req.body || {};
+    const { source_ads_id, target_ads_id, owner_id, status } = req.body;
 
     // Validate request body
-    if (!AdsId || !OwnerId || !Status) {
+    if (!source_ads_id || !target_ads_id || !owner_id || !status) {
         return res.status(400).json({
             Success: false,
             Message: "Missing required fields: AdsId, OwnerId, Status."
@@ -279,11 +296,11 @@ app.post('/api/v1/offer', async (req, res) => {
     try {
         // Insert offer into the database
         const query = `
-            INSERT INTO offers (ads_id, owner_id, status)
-            VALUES ($1, $2, $3)
-            RETURNING id, ads_id, owner_id, created_date, status;
+            INSERT INTO offers (source_ads_id, target_ads_id, owner_id, status)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, source_ads_id, target_ads_id, owner_id, created_date, status;
         `;
-        const values = [AdsId, OwnerId, Status];
+        const values = [source_ads_id, target_ads_id, owner_id, status];
         const result = await pool.query(query, values);
 
         res.status(201).json({

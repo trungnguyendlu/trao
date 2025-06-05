@@ -424,13 +424,16 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "AdsId": {
+                                    "source_ads_id": {
                                         "type": "integer"
                                     },
-                                    "OwnerId": {
+                                    "target_ads_id": {
                                         "type": "integer"
                                     },
-                                    "Status": {
+                                    "owner_id": {
+                                        "type": "integer"
+                                    },
+                                    "status": {
                                         "type": "string",
                                         "enum": [
                                             "new",
@@ -442,9 +445,10 @@
                                     }
                                 },
                                 "required": [
-                                    "AdsId",
-                                    "OwnerId",
-                                    "Status"
+                                    "source_ads_id",
+                                    "target_ads_id",
+                                    "owner_id",
+                                    "status"
                                 ]
                             }
                         }
