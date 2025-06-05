@@ -45,9 +45,9 @@ app.get('/api/v1/collections', async (req, res) => {
 
 // API cập nhật status của offer
 app.put('/api/v1/offer/status-update', async (req, res) => {
-    const { OfferId, Status } = req.body;
+    const { offer_id, status } = req.body;
 
-    if (!OfferId || !Status) {
+    if (!offer_id || !status) {
         return res.status(400).json({ Success: false, Message: 'Missing required fields' });
     }
 
@@ -57,7 +57,7 @@ app.put('/api/v1/offer/status-update', async (req, res) => {
             SET status = $1
             WHERE id = $2;
             `;
-        const values = [Status, OfferId];
+        const values = [status, offer_id];
         await pool.query(query, values);
 
         res.json({ Success: true, Data: {} });
@@ -92,8 +92,8 @@ app.post('/api/v1/ads', async (req, res) => {
 });
 
 // API update Ads
-app.post('/api/v1/ads/:ads_id/update', async (req, res) => {
-    const { ads_id } = req.params;
+app.post('/api/v1/ads/:id/update', async (req, res) => {
+    const { id } = req.params;
     const { name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id } = req.body;
 
     if (!name || !type || !short_description || !description || !image_url || !seller_id || !location_distance || !status || !collection_id) {
@@ -115,7 +115,7 @@ app.post('/api/v1/ads/:ads_id/update', async (req, res) => {
             WHERE id = $10 
             RETURNING *
             `;
-        const values = [name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id, ads_id];
+        const values = [name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id, id];
         const result = await pool.query(query, values);
 
         res.json({ Success: true, Data: result.rows[0] });
@@ -243,8 +243,8 @@ app.get('/api/v1/ads/get-detail/:id/:current_user_id', async (req, res) => {
 });
 
 // API lấy Ads đầu tiên trong Collection
-app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
-    const { collectionId } = req.params;
+app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
+    const { id } = req.params;
 
     try {
         const query = 
@@ -283,7 +283,7 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
             )
             ORDER BY row_num ASC
             LIMIT 1;`;
-        const values = [collectionId];
+        const values = [id];
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
@@ -298,8 +298,8 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
 });
 
 // API lấy Ads tiếp theo trong Collection
-app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, res) => {
-    const { collectionId, currentAdsId } = req.params;
+app.get('/api/v1/collections/:id/ads/next/:current_index', async (req, res) => {
+    const { id, current_index } = req.params;
 
     try {
         const query = `SELECT *
@@ -337,7 +337,7 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
         )
         WHERE row_num > $2
         LIMIT 1;`;
-        const values = [collectionId, currentAdsId];
+        const values = [id, current_index];
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
@@ -352,8 +352,8 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
 });
 
 
-// POST endpoint to create an offer
-app.post('/api/v1/offer', async (req, res) => {
+// POST endpoint to create a goodsoffer
+app.post('/api/v1/offer/goods', async (req, res) => {
     const { source_ads_id, target_ads_id, owner_id, status } = req.body;
 
     // Validate request body
@@ -367,9 +367,9 @@ app.post('/api/v1/offer', async (req, res) => {
     try {
         // Insert offer into the database
         const query = `
-            INSERT INTO offers (source_ads_id, target_ads_id, owner_id, status)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, source_ads_id, target_ads_id, owner_id, created_date, status;
+            INSERT INTO offers (type, source_ads_id, target_ads_id, owner_id, status, created_date)
+            VALUES ('Goods',$1, $2, $3, $4, CURRENT_TIMESTAMP)
+            RETURNING *;
         `;
         const values = [source_ads_id, target_ads_id, owner_id, status];
         const result = await pool.query(query, values);
@@ -387,11 +387,46 @@ app.post('/api/v1/offer', async (req, res) => {
     }
 });
 
+// POST endpoint to create an offer
+app.post('/api/v1/offer/cash', async (req, res) => {
+    const { price, target_ads_id, owner_id, status } = req.body;
+
+    // Validate request body
+    if (!target_ads_id || !price || !owner_id || !status) {
+        return res.status(400).json({
+            Success: false,
+            Message: "Missing required fields: AdsId, OwnerId, Status."
+        });
+    }
+
+    try {
+        // Insert offer into the database
+        const query = `
+            INSERT INTO offers (type, price, target_ads_id, owner_id, status, created_date)
+            VALUES ('Cash', $1, $2, $3, $4, CURRENT_TIMESTAMP)
+            RETURNING *;
+        `;
+        const values = [target_ads_id, price, owner_id, status];
+        const result = await pool.query(query, values);
+
+        res.status(201).json({
+            Success: true,
+            Data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error inserting offer:', error);
+        res.status(500).json({
+            Success: false,
+            Message: "Internal server error."
+        });
+    }
+});
+
 // API endpoint
 app.post('/api/v1/ads/user-interaction', async (req, res) => {
-    const { UserId, AdsId, ActionType } = req.body;
+    const { user_id, ads_id, action_type } = req.body;
 
-    if (!UserId || !AdsId || !ActionType) {
+    if (!user_id || !ads_id || !action_type) {
         return res.status(400).json({ Success: false, Message: 'UserId and AdsId and ActionType are required' });
     }
 
@@ -401,7 +436,7 @@ app.post('/api/v1/ads/user-interaction', async (req, res) => {
             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
             RETURNING *;
         `;
-        const result = await pool.query(query, [UserId, AdsId, ActionType]);
+        const result = await pool.query(query, [user_id, ads_id, action_type]);
         res.json({ Success: true, Data: result.rows[0] });
     } catch (error) {
         console.error(error);

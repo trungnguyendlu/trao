@@ -53,13 +53,13 @@
                 }
             }
         },
-        "/api/v1/collections/{collectionId}/ads/first": {
+        "/api/v1/collections/{id}/ads/first": {
             "get": {
                 "summary": "Get the first ad in a collection",
                 "description": "Retrieve the first ad in the specified collection",
                 "parameters": [
                     {
-                        "name": "collectionId",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -111,13 +111,13 @@
                 }
             }
         },
-        "/api/v1/collections/{collectionId}/ads/next/{currentAdsId}": {
+        "/api/v1/collections/{id}/ads/next/{current_index}": {
             "get": {
                 "summary": "Get the next ad in a collection",
                 "description": "Retrieve the next ad in the specified collection after the current ad",
                 "parameters": [
                     {
-                        "name": "collectionId",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -126,7 +126,7 @@
                         "description": "ID of the collection"
                     },
                     {
-                        "name": "currentAdsId",
+                        "name": "current_index",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -189,23 +189,23 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "OfferId": {
+                                    "offer_id": {
                                         "type": "integer"
                                     },
-                                    "Status": {
+                                    "status": {
                                         "type": "string",
                                         "enum": [
-                                            "new",
-                                            "pending",
-                                            "accepted",
-                                            "rejected",
-                                            "cancelled"
+                                            "New",
+                                            "Pending",
+                                            "Accepted",
+                                            "Rejected",
+                                            "Cancelled"
                                         ]
                                     }
                                 },
                                 "required": [
-                                    "OfferId",
-                                    "Status"
+                                    "offer_id",
+                                    "status"
                                 ]
                             }
                         }
@@ -501,13 +501,13 @@
                 }
             }
         },
-        "/api/v1/ads/{ads_id}/update": {
+        "/api/v1/ads/{id}/update": {
             "post": {
                 "summary": "Update a ads",
                 "description": "Update a ads",
                 "parameters":[
                     {
-                        "name": "ads_id",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -594,10 +594,10 @@
                 }
             }
         },
-        "/api/v1/offer": {
+        "/api/v1/offer/goods": {
             "post": {
-                "summary": "Create a new offer",
-                "description": "Creates a new offer for an ad.",
+                "summary": "Create a new goods offer",
+                "description": "Creates a new goods offer for an ads.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -617,17 +617,131 @@
                                     "status": {
                                         "type": "string",
                                         "enum": [
-                                            "new",
-                                            "pending",
-                                            "accepted",
-                                            "rejected",
-                                            "cancelled"
+                                            "New",
+                                            "Pending",
+                                            "Accepted",
+                                            "Rejected",
+                                            "Cancelled"
                                         ]
                                     }
                                 },
                                 "required": [
-                                    "source_ads_id",
                                     "target_ads_id",
+                                    "owner_id",
+                                    "status"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Offer created successfully.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": true
+                                },
+                                "Data": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Id": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "AdsId": {
+                                            "type": "integer",
+                                            "example": 123
+                                        },
+                                        "OwnerId": {
+                                            "type": "integer",
+                                            "example": 456
+                                        },
+                                        "CreatedDate": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2023-10-01T12:00:00Z"
+                                        },
+                                        "Status": {
+                                            "type": "string",
+                                            "example": "Pending"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": false
+                                },
+                                "Message": {
+                                    "type": "string",
+                                    "example": "Missing required fields: AdsId, OwnerId, CreatedDate, Status."
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": false
+                                },
+                                "Message": {
+                                    "type": "string",
+                                    "example": "Internal server error."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/offer/cash": {
+            "post": {
+                "summary": "Create a new cash offer",
+                "description": "Creates a new cash offer for an ads.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "target_ads_id": {
+                                        "type": "integer"
+                                    },
+                                    "price": {
+                                        "type": "integer"
+                                    },
+                                    "owner_id": {
+                                        "type": "integer"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "New",
+                                            "Pending",
+                                            "Accepted",
+                                            "Rejected",
+                                            "Cncelled"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "target_ads_id",
+                                    "price",
                                     "owner_id",
                                     "status"
                                 ]
@@ -719,25 +833,24 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "AdsId": {
+                                    "user_id": {
                                         "type": "integer"
                                     },
-                                    "UserId": {
+                                    "ads_id": {
                                         "type": "integer"
                                     },
-                                    "ActionType": {
+                                    "action_type": {
                                         "type": "string",
                                         "enum": [
                                             "Like",
-                                            "UnLike",
-                                            "View"
+                                            "Unlike"
                                         ]
                                     }
                                 },
                                 "required": [
-                                    "AdsId",
-                                    "UserId",
-                                    "ActionType"
+                                    "user_id",
+                                    "ads_id",
+                                    "action_type"
                                 ]
                             }
                         }
