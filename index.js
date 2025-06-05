@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const { Pool } = require('pg');
 
 const app = express();
@@ -16,6 +17,9 @@ const pool = new Pool({
 
 // Middleware để parse JSON
 app.use(express.json());
+
+// Enable CORS for all origins
+app.use(cors());
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
