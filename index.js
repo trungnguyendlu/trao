@@ -46,19 +46,19 @@ app.get('/api/v1/collections', async (req, res) => {
 
 // API cập nhật status của offer
 app.put('/api/v1/offer/status-update', async (req, res) => {
-    const { AdsId, UserId, ActionType } = req.body;
+    const { OfferId, Status } = req.body;
 
-    if (!AdsId || !UserId || !ActionType) {
+    if (!OfferId || !Status) {
         return res.status(400).json({ Success: false, Message: 'Missing required fields' });
     }
 
     try {
         const query = `
-      UPDATE offers
-      SET status = $1
-      WHERE ads_id = $2 AND user_id = $3
-    `;
-        const values = [ActionType, AdsId, UserId];
+            UPDATE offers
+            SET status = $1
+            WHERE id = $2;
+            `;
+        const values = [Status, OfferId];
         await pool.query(query, values);
 
         res.json({ Success: true, Data: {} });
@@ -70,7 +70,7 @@ app.put('/api/v1/offer/status-update', async (req, res) => {
 
 // API tạo Ads
 app.post('/api/v1/ads', async (req, res) => {
-    const { Name, ShortDescription, Description } = req.body;
+    const { name, short_description, description, image_url, seller_id } = req.body;
 
     if (!Name || !ShortDescription || !Description) {
         return res.status(400).json({ Success: false, Message: 'Missing required fields' });
@@ -93,8 +93,9 @@ app.post('/api/v1/ads', async (req, res) => {
 });
 
 // API lấy danh sách Ads
-app.get('/api/v1/ads/get-all', async (req, res) => {
+app.get('/api/v1/ads/get-by-owner/:ownerId', async (req, res) => {
     try {
+        const { ownerId } = req.params;
         const query = `SELECT a.id,
             a.name,
             a.type,
@@ -111,9 +112,12 @@ app.get('/api/v1/ads/get-all', async (req, res) => {
         FROM ads a 
         INNER JOIN collections c ON a.collection_id = c.id 
         INNER JOIN users u ON a.seller_id = u.id 
+        WHERE a.seller_id = $1
+            AND a.status = 'Active'
         ORDER BY created_date DESC`;
 
-        const result = await pool.query(query);
+        const values = [ownerId];
+        const result = await pool.query(query, values);
 
         res.json({ Success: true, Data: result.rows });
     } catch (error) {
@@ -133,9 +137,9 @@ app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
                 ads.short_description,
                 ads.description,
                 ads.image_url,
-                ads.name AS "seller_name",
+                ads.name AS seller_name,
                 ads.location_distance,
-                (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                (select count(1) from offers where ads_id = ads.id) AS total_offer,
                 json_agg(
                     json_build_object(
                         'id', offers.id,
@@ -144,7 +148,7 @@ app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
                         'created_date', offers.created_date,
                         'status', offers.status
                     )
-                ) AS "offers"
+                ) AS offers
             FROM ads
             LEFT JOIN offers ON ads.id = offers.ads_id
 			LEFT JOIN users ON offers.owner_id = users.id
@@ -164,6 +168,7 @@ app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
         res.status(500).json({ Success: false, Message: 'Internal server error' });
     }
 });
+
 // API lấy Ads đầu tiên trong Collection
 app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
     const { collectionId } = req.params;
@@ -175,9 +180,9 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
                 ads.short_description,
                 ads.description,
                 ads.image_url,
-                ads.name AS "seller_name",
+                ads.name AS seller_name,
                 ads.location_distance,
-                (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                (select count(1) from offers where ads_id = ads.id) AS total_offer,
                 json_agg(
                     json_build_object(
                         'Id', offers.id,
@@ -186,7 +191,7 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
                         'CreatedDate', offers.created_date,
                         'Status', offers.status
                     )
-                ) AS "offers"
+                ) AS offers
             FROM ads
             LEFT JOIN offers ON ads.id = offers.ads_id
 			LEFT JOIN users ON offers.owner_id = users.id
@@ -222,9 +227,9 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
                         ads.short_description,
                         ads.description,
                         ads.image_url,
-                        ads.name AS "seller_name",
+                        ads.name AS seller_name,
                         ads.location_distance,
-                        (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                        (select count(1) from offers where ads_id = ads.id) AS total_offer,
                         json_agg(
                             json_build_object(
                                 'Id', offers.id,
@@ -233,7 +238,7 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
                                 'CreatedDate', offers.created_date,
                                 'Status', offers.status
                             )
-                        ) AS "offers"
+                        ) AS offers
                     FROM ads
                     LEFT JOIN offers ON ads.id = offers.ads_id
                     LEFT JOIN users ON offers.owner_id = users.id
@@ -291,6 +296,28 @@ app.post('/api/v1/offer', async (req, res) => {
             Success: false,
             Message: "Internal server error."
         });
+    }
+});
+
+// API endpoint
+app.post('/api/v1/ads/user-interaction', async (req, res) => {
+    const { UserId, AdsId, ActionType } = req.body;
+
+    if (!UserId || !AdsId || !ActionType) {
+        return res.status(400).json({ Success: false, Message: 'UserId and AdsId and ActionType are required' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO user_activities (user_id, ads_id, action_type, created_date)
+            VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [UserId, AdsId, ActionType]);
+        res.json({ Success: true, Data: result.rows[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ Success: false, Message: 'Internal Server Error' });
     }
 });
 

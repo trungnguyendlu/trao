@@ -179,7 +179,7 @@
             }
         },
         "/api/v1/offer/status-update": {
-            "post": {
+            "put": {
                 "summary": "Update offer status",
                 "description": "Update the status of an offer",
                 "requestBody": {
@@ -189,21 +189,23 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "offerId": {
+                                    "OfferId": {
                                         "type": "integer"
                                     },
-                                    "status": {
+                                    "Status": {
                                         "type": "string",
                                         "enum": [
+                                            "new",
                                             "pending",
                                             "accepted",
-                                            "rejected"
+                                            "rejected",
+                                            "cancelled"
                                         ]
                                     }
                                 },
                                 "required": [
-                                    "offerId",
-                                    "status"
+                                    "OfferId",
+                                    "Status"
                                 ]
                             }
                         }
@@ -237,10 +239,21 @@
                 }
             }
         },
-        "/api/v1/ads/get-all": {
+        "/api/v1/ads/get-by-owner/{ownerId}": {
             "get": {
-                "summary": "Get all ads",
-                "description": "Retrieve a list of all ads",
+                "summary": "Get ads by owner",
+                "description": "Get ads by owner",
+                "parameters": [
+                    {
+                        "name": "ownerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the owner"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Successful response",
@@ -404,35 +417,39 @@
             "post": {
                 "summary": "Create a new offer",
                 "description": "Creates a new offer for an ad.",
-                "parameters": [
-                    {
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "AdsId": {
-                                    "type": "integer",
-                                    "example": 123
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "AdsId": {
+                                        "type": "integer"
+                                    },
+                                    "OwnerId": {
+                                        "type": "integer"
+                                    },
+                                    "Status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "new",
+                                            "pending",
+                                            "accepted",
+                                            "rejected",
+                                            "cancelled"
+                                        ]
+                                    }
                                 },
-                                "OwnerId": {
-                                    "type": "integer",
-                                    "example": 456
-                                },
-                                "Status": {
-                                    "type": "string",
-                                    "example": "New"
-                                }
-                            },
-                            "required": [
-                                "AdsId",
-                                "OwnerId",
-                                "Status"
-                            ]
+                                "required": [
+                                    "AdsId",
+                                    "OwnerId",
+                                    "Status"
+                                ]
+                            }
                         }
                     }
-                ],
+                },
                 "responses": {
                     "201": {
                         "description": "Offer created successfully.",
@@ -503,6 +520,64 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/v1/ads/user-interaction": {
+            "post": {
+                "summary": "Save user interaction with ads",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "AdsId": {
+                                        "type": "integer"
+                                    },
+                                    "UserId": {
+                                        "type": "integer"
+                                    },
+                                    "ActionType": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Like",
+                                            "UnLike",
+                                            "View"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "AdsId",
+                                    "UserId",
+                                    "ActionType"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean"
+                                },
+                                "Data": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
                     }
                 }
             }
