@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const bodyParser = require('body-parser');
 
 const app = express();
 const port = 3000;
@@ -122,11 +123,34 @@ app.get('/api/v1/ads/get-all', async (req, res) => {
 });
 
 // API lấy thông tin chi tiết của một Ads
-app.get('/api/v1/ads/:id', async (req, res) => {
+app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const query = `SELECT * FROM ads WHERE id = $1`;
+        const query = `SELECT 
+                ads.id,
+                ads.name,
+                ads.short_description,
+                ads.description,
+                ads.image_url,
+                ads.name AS "seller_name",
+                ads.location_distance,
+                (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                json_agg(
+                    json_build_object(
+                        'id', offers.id,
+                        'ads_name', ads.name,
+                        'owner_name', users.name,
+                        'created_date', offers.created_date,
+                        'status', offers.status
+                    )
+                ) AS "offers"
+            FROM ads
+            LEFT JOIN offers ON ads.id = offers.ads_id
+			LEFT JOIN users ON offers.owner_id = users.id
+            WHERE ads.id = $1
+            GROUP BY ads.id
+            ORDER BY ads.created_date ASC`;
         const values = [id];
         const result = await pool.query(query, values);
 
@@ -145,7 +169,31 @@ app.get('/api/v1/collections/:collectionId/ads/first', async (req, res) => {
     const { collectionId } = req.params;
 
     try {
-        const query = `SELECT * FROM ads WHERE collection_id = $1 ORDER BY created_date ASC LIMIT 1`;
+        const query = `SELECT 
+                ads.id,
+                ads.name,
+                ads.short_description,
+                ads.description,
+                ads.image_url,
+                ads.name AS "seller_name",
+                ads.location_distance,
+                (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                json_agg(
+                    json_build_object(
+                        'Id', offers.id,
+                        'AdsName', ads.name,
+                        'OwnerName', users.name,
+                        'CreatedDate', offers.created_date,
+                        'Status', offers.status
+                    )
+                ) AS "offers"
+            FROM ads
+            LEFT JOIN offers ON ads.id = offers.ads_id
+			LEFT JOIN users ON offers.owner_id = users.id
+            WHERE ads.collection_id = $1
+            GROUP BY ads.id
+            ORDER BY ads.created_date ASC
+            LIMIT 1;`;
         const values = [collectionId];
         const result = await pool.query(query, values);
 
@@ -165,11 +213,36 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
     const { collectionId, currentAdsId } = req.params;
 
     try {
-        const query = `
-            SELECT * FROM ads 
-            WHERE collection_id = $1 AND id > $2 
-            ORDER BY id ASC LIMIT 1
-        `;
+        const query = `SELECT *
+        FROM
+        (
+            SELECT ROW_NUMBER() OVER (ORDER BY ads.created_date DESC) AS row_num,
+                        ads.id,
+                        ads.name,
+                        ads.short_description,
+                        ads.description,
+                        ads.image_url,
+                        ads.name AS "seller_name",
+                        ads.location_distance,
+                        (select count(1) from offers where ads_id = ads.id) AS "total_offer",
+                        json_agg(
+                            json_build_object(
+                                'Id', offers.id,
+                                'AdsName', ads.name,
+                                'OwnerName', users.name,
+                                'CreatedDate', offers.created_date,
+                                'Status', offers.status
+                            )
+                        ) AS "offers"
+                    FROM ads
+                    LEFT JOIN offers ON ads.id = offers.ads_id
+                    LEFT JOIN users ON offers.owner_id = users.id
+                    WHERE ads.collection_id = $1
+                    GROUP BY ads.id
+                    ORDER BY ads.created_date ASC
+        )
+        WHERE row_num > $2
+        LIMIT 1;`;
         const values = [collectionId, currentAdsId];
         const result = await pool.query(query, values);
 
@@ -183,6 +256,44 @@ app.get('/api/v1/collections/:collectionId/ads/next/:currentAdsId', async (req, 
         res.status(500).json({ Success: false, Message: 'Internal server error' });
     }
 });
+
+
+// POST endpoint to create an offer
+app.post('/api/v1/offer', async (req, res) => {
+    console.log('Request Body:', req.body);
+    const { AdsId, OwnerId, Status } = req.body || {};
+
+    // Validate request body
+    if (!AdsId || !OwnerId || !Status) {
+        return res.status(400).json({
+            Success: false,
+            Message: "Missing required fields: AdsId, OwnerId, Status."
+        });
+    }
+
+    try {
+        // Insert offer into the database
+        const query = `
+            INSERT INTO offers (ads_id, owner_id, status)
+            VALUES ($1, $2, $3)
+            RETURNING id, ads_id, owner_id, created_date, status;
+        `;
+        const values = [AdsId, OwnerId, Status];
+        const result = await pool.query(query, values);
+
+        res.status(201).json({
+            Success: true,
+            Data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error inserting offer:', error);
+        res.status(500).json({
+            Success: false,
+            Message: "Internal server error."
+        });
+    }
+});
+
 // Lắng nghe trên cổng
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);

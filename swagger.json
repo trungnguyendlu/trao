@@ -284,6 +284,61 @@
                 }
             }
         },
+        "/api/v1/ads/get-detail/{id}": {
+            "get": {
+                "summary": "Get ads detail",
+                "description": "Get ads detail",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the ads"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Success": {
+                                            "type": "boolean"
+                                        },
+                                        "Data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "title": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "created_date": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
         "/api/v1/ads": {
             "post": {
                 "summary": "Create a new ad",
@@ -341,6 +396,113 @@
                     },
                     "500": {
                         "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/v1/offer": {
+            "post": {
+                "summary": "Create a new offer",
+                "description": "Creates a new offer for an ad.",
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "AdsId": {
+                                    "type": "integer",
+                                    "example": 123
+                                },
+                                "OwnerId": {
+                                    "type": "integer",
+                                    "example": 456
+                                },
+                                "Status": {
+                                    "type": "string",
+                                    "example": "New"
+                                }
+                            },
+                            "required": [
+                                "AdsId",
+                                "OwnerId",
+                                "Status"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Offer created successfully.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": true
+                                },
+                                "Data": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Id": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "AdsId": {
+                                            "type": "integer",
+                                            "example": 123
+                                        },
+                                        "OwnerId": {
+                                            "type": "integer",
+                                            "example": 456
+                                        },
+                                        "CreatedDate": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2023-10-01T12:00:00Z"
+                                        },
+                                        "Status": {
+                                            "type": "string",
+                                            "example": "Pending"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": false
+                                },
+                                "Message": {
+                                    "type": "string",
+                                    "example": "Missing required fields: AdsId, OwnerId, CreatedDate, Status."
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "Success": {
+                                    "type": "boolean",
+                                    "example": false
+                                },
+                                "Message": {
+                                    "type": "string",
+                                    "example": "Internal server error."
+                                }
+                            }
+                        }
                     }
                 }
             }
