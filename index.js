@@ -406,7 +406,7 @@ app.post('/api/v1/offer/cash', async (req, res) => {
             VALUES ('Cash', $1, $2, $3, $4, CURRENT_TIMESTAMP)
             RETURNING *;
         `;
-        const values = [target_ads_id, price, owner_id, status];
+        const values = [price, target_ads_id, owner_id, status];
         const result = await pool.query(query, values);
 
         res.status(201).json({
