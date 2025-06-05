@@ -69,22 +69,56 @@ app.put('/api/v1/offer/status-update', async (req, res) => {
 
 // API tạo Ads
 app.post('/api/v1/ads', async (req, res) => {
-    const { name, short_description, description, image_url, seller_id } = req.body;
+    const { name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id } = req.body;
 
-    if (!Name || !ShortDescription || !Description) {
+    if (!name || !type || !short_description || !description || !image_url || !seller_id || !location_distance || !status || !collection_id) {
         return res.status(400).json({ Success: false, Message: 'Missing required fields' });
     }
 
     try {
         const query = `
-      INSERT INTO ads (id, name, type, shortdescription, description, ImageUrl, SellerId, LocationDistance, Status, CreatedDate)
-      VALUES ($1, $2, $3)
-      RETURNING id
-    `;
-        const values = [Name, ShortDescription, Description];
+        INSERT INTO ads (name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id, created_date)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+        RETURNING *
+        `;
+        const values = [name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id];
         const result = await pool.query(query, values);
 
-        res.json({ Success: true, Data: { AdsId: result.rows[0].id } });
+        res.json({ Success: true, Data: result.rows[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ Success: false, Message: 'Internal server error' });
+    }
+});
+
+// API update Ads
+app.post('/api/v1/ads/:ads_id/update', async (req, res) => {
+    const { ads_id } = req.params;
+    const { name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id } = req.body;
+
+    if (!name || !type || !short_description || !description || !image_url || !seller_id || !location_distance || !status || !collection_id) {
+        return res.status(400).json({ Success: false, Message: 'Missing required fields' });
+    }
+
+    try {
+        const query = `
+            UPDATE ads 
+            SET name = $1,
+                type = $2,
+                short_description = $3, 
+                description = $4, 
+                image_url = $5, 
+                seller_id = $6, 
+                location_distance = $7, 
+                status = $8, 
+                collection_id = $9
+            WHERE id = $10 
+            RETURNING *
+            `;
+        const values = [name, type, short_description, description, image_url, seller_id, location_distance, status, collection_id, ads_id];
+        const result = await pool.query(query, values);
+
+        res.json({ Success: true, Data: result.rows[0] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ Success: false, Message: 'Internal server error' });
@@ -160,11 +194,12 @@ app.get('/api/v1/ads/get-by-collection/:collection_id', async (req, res) => {
 });
 
 // API lấy thông tin chi tiết của một Ads
-app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
-    const { id } = req.params;
+app.get('/api/v1/ads/get-detail/:id/:current_user_id', async (req, res) => {
+    const { id, current_user_id } = req.params;
 
     try {
-        const query = `SELECT 
+        const query = `
+            SELECT
                 ads.id,
                 ads.name,
                 ads.short_description,
@@ -172,26 +207,28 @@ app.get('/api/v1/ads/get-detail/:id', async (req, res) => {
                 ads.image_url,
                 ads.name AS seller_name,
                 ads.location_distance,
-                (select count(1) from offers where target_ads_id = ads.id) AS total_offer,
-                json_agg(
-                    json_build_object(
-                        'id', offers.id,
-                        'ads_id', a2.id,
-                        'ads_name', a2.name,
-                        'image_url', a2.image_url,
-                        'owner_name', users.name,
-                        'created_date', offers.created_date,
-                        'status', offers.status
+                (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $2) AS is_like,   
+                (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', offers.id,
+                            'ads_id', a2.id,
+                            'ads_name', a2.name,
+                            'image_url', a2.image_url,
+                            'owner_name', users.name,
+                            'created_date', offers.created_date,
+                            'status', offers.status
+                        )
                     )
+                    FROM offers
+                    LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+                    LEFT JOIN users ON offers.owner_id = users.id
+                    WHERE target_ads_id = ads.id
                 ) AS offers
-            FROM ads
-            LEFT JOIN offers ON ads.id = offers.target_ads_id
-            LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
-            LEFT JOIN users ON offers.owner_id = users.id
-            WHERE ads.id = $1
-            GROUP BY ads.id
-            ORDER BY ads.created_date ASC`;
-        const values = [id];
+                FROM ads
+            WHERE ads.id = $1;`;
+        const values = [id, current_user_id];
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {

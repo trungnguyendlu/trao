@@ -355,7 +355,7 @@
                 }
             }
         },
-        "/api/v1/ads/get-detail/{id}": {
+        "/api/v1/ads/get-detail/{id}/{current_user_id}": {
             "get": {
                 "summary": "Get ads detail",
                 "description": "Get ads detail",
@@ -368,6 +368,15 @@
                             "type": "integer"
                         },
                         "description": "ID of the ads"
+                    },
+                    {
+                        "name": "current_user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the current user"
                     }
                 ],
                 "responses": {
@@ -412,8 +421,8 @@
         },
         "/api/v1/ads": {
             "post": {
-                "summary": "Create a new ad",
-                "description": "Create a new advertisement",
+                "summary": "Create a new ads",
+                "description": "Create a new ads",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -421,20 +430,134 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "title": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string"
+                                    },
+                                    "short_description": {
                                         "type": "string"
                                     },
                                     "description": {
                                         "type": "string"
                                     },
-                                    "created_date": {
-                                        "type": "string",
-                                        "format": "date-time"
+                                    "image_url": {
+                                        "type": "string"
+                                    },
+                                    "seller_id": {
+                                        "type": "integer"
+                                    },
+                                    "location_distance": {
+                                        "type": "double"
+                                    },
+                                    "status": {
+                                        "type": "string"
                                     }
                                 },
                                 "required": [
-                                    "title",
-                                    "description"
+                                    "name",
+                                    "type",
+                                    "short_description",
+                                    "description",
+                                    "image_url",
+                                    "seller_id",
+                                    "location_distance",
+                                    "status",
+                                    "collection_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Ad created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Success": {
+                                            "type": "boolean"
+                                        },
+                                        "Message": {
+                                            "type": "string"
+                                        },
+                                        "AdId": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/v1/ads/{ads_id}/update": {
+            "post": {
+                "summary": "Update a ads",
+                "description": "Update a ads",
+                "parameters":[
+                    {
+                        "name": "ads_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the ads"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string"
+                                    },
+                                    "short_description": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "image_url": {
+                                        "type": "string"
+                                    },
+                                    "seller_id": {
+                                        "type": "integer"
+                                    },
+                                    "location_distance": {
+                                        "type": "double"
+                                    },
+                                    "status": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "type",
+                                    "short_description",
+                                    "description",
+                                    "image_url",
+                                    "seller_id",
+                                    "location_distance",
+                                    "status",
+                                    "collection_id"
                                 ]
                             }
                         }
