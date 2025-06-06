@@ -216,6 +216,8 @@ app.get('/api/v1/ads/get-detail/:id/:current_user_id', async (req, res) => {
                             'ads_id', a2.id,
                             'ads_name', a2.name,
                             'image_url', a2.image_url,
+                            'type', offers.type,
+                            'price', offers.price,
                             'owner_name', users.name,
                             'created_date', offers.created_date,
                             'status', offers.status
@@ -267,6 +269,8 @@ app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
                                 'ads_id', a2.id,
                                 'ads_name', a2.name,
                                 'image_url', a2.image_url,
+                                'type', offers.type,
+                                'price', offers.price,
                                 'owner_name', users.name,
                                 'created_date', offers.created_date,
                                 'status', offers.status
@@ -321,6 +325,8 @@ app.get('/api/v1/collections/:id/ads/next/:current_index', async (req, res) => {
                             'ads_id', a2.id,
                             'ads_name', a2.name,
                             'image_url', a2.image_url,
+                            'type', offers.type,
+                            'price', offers.price,
                             'owner_name', users.name,
                             'created_date', offers.created_date,
                             'status', offers.status
