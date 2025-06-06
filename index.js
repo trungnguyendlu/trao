@@ -199,37 +199,49 @@ app.get('/api/v1/ads/get-detail/:id/:current_user_id', async (req, res) => {
 
     try {
         const query = `
-            SELECT
-                ads.id,
-                ads.name,
-                ads.short_description,
-                ads.description,
-                array_to_json(string_to_array(ads.image_url, ',')) AS image_url,
-                ads.name AS seller_name,
-                ads.location_distance,
-                (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $2) AS is_like,   
-                (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
-                (
-                    SELECT json_agg(
-                        json_build_object(
-                            'id', offers.id,
-                            'ads_id', a2.id,
-                            'ads_name', a2.name,
-                            'image_url', a2.image_url,
-                            'type', offers.type,
-                            'price', offers.price,
-                            'owner_name', users.name,
-                            'created_date', offers.created_date,
-                            'status', offers.status
-                        )
-                    )
-                    FROM offers
-                    LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
-                    LEFT JOIN users ON offers.owner_id = users.id
-                    WHERE target_ads_id = ads.id
-                ) AS offers
+            SELECT ROW_NUMBER() OVER (ORDER BY ads.created_date DESC) AS row_num,
+                    ads.id,
+                    ads.name,
+                    ads.short_description,
+                    ads.description,
+                    array_to_json(string_to_array(ads.image_url, ',')) AS image_url,
+                    users.name AS seller_name,
+                    ads.location_distance,
+                    (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $2) AS is_like,
+                    (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
+                    (
+                        SELECT json_agg(
+                            json_build_object(
+                                'id', id,
+                                'ads_id', ads_id,
+                                'ads_name', ads_name,
+                                'image_url', image_url,
+                                'type', type,
+                                'price', price,
+                                'owner_name', owner_name,
+                                'created_date', created_date,
+                                'status', status
+                            )
+                        ) 
+						FROM (
+							SELECT offers.id,
+								a2.id AS ads_id,
+								a2.name as ads_name,
+								array_to_json(string_to_array(a2.image_url, ',')) AS image_url,
+								offers.type,
+								offers.price,
+								users.name AS owner_name,
+								offers.created_date,
+								offers.status
+	                        FROM offers
+	                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+	                        LEFT JOIN users ON offers.owner_id = users.id
+	                        WHERE target_ads_id = ads.id
+						)
+                    ) AS offers
                 FROM ads
-            WHERE ads.id = $1;`;
+                LEFT JOIN users ON ads.seller_id = users.id
+                WHERE ads.id = $1;`;
         const values = [id, current_user_id];
         const result = await pool.query(query, values);
 
@@ -245,8 +257,8 @@ app.get('/api/v1/ads/get-detail/:id/:current_user_id', async (req, res) => {
 });
 
 // API lấy Ads đầu tiên trong Collection
-app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
-    const { id } = req.params;
+app.get('/api/v1/collections/:id/ads/first/:current_user_id', async (req, res) => {
+    const { id, current_user_id } = req.params;
 
     try {
         const query = 
@@ -261,25 +273,37 @@ app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
                     array_to_json(string_to_array(ads.image_url, ',')) AS image_url,
                     ads.name AS seller_name,
                     ads.location_distance,
+                    (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $2) AS is_like,
                     (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
                     (
                         SELECT json_agg(
                             json_build_object(
-                                'id', offers.id,
-                                'ads_id', a2.id,
-                                'ads_name', a2.name,
-                                'image_url', a2.image_url,
-                                'type', offers.type,
-                                'price', offers.price,
-                                'owner_name', users.name,
-                                'created_date', offers.created_date,
-                                'status', offers.status
+                                'id', id,
+                                'ads_id', ads_id,
+                                'ads_name', ads_name,
+                                'image_url', image_url,
+                                'type', type,
+                                'price', price,
+                                'owner_name', owner_name,
+                                'created_date', created_date,
+                                'status', status
                             )
-                        )
-                        FROM offers
-                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
-                        LEFT JOIN users ON offers.owner_id = users.id
-                        WHERE target_ads_id = ads.id
+                        ) 
+						FROM (
+							SELECT offers.id,
+								a2.id AS ads_id,
+								a2.name as ads_name,
+								array_to_json(string_to_array(a2.image_url, ',')) AS image_url,
+								offers.type,
+								offers.price,
+								users.name AS owner_name,
+								offers.created_date,
+								offers.status
+	                        FROM offers
+	                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+	                        LEFT JOIN users ON offers.owner_id = users.id
+	                        WHERE target_ads_id = ads.id
+						)
                     ) AS offers
                 FROM ads
                 WHERE ads.collection_id = $1
@@ -287,7 +311,7 @@ app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
             )
             ORDER BY row_num ASC
             LIMIT 1;`;
-        const values = [id];
+        const values = [id, current_user_id];
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
@@ -302,8 +326,8 @@ app.get('/api/v1/collections/:id/ads/first', async (req, res) => {
 });
 
 // API lấy Ads tiếp theo trong Collection
-app.get('/api/v1/collections/:id/ads/next/:current_index', async (req, res) => {
-    const { id, current_index } = req.params;
+app.get('/api/v1/collections/:id/ads/next/:current_index/:current_user_id', async (req, res) => {
+    const { id, current_index, current_user_id } = req.params;
 
     try {
         const query = `SELECT *
@@ -317,37 +341,117 @@ app.get('/api/v1/collections/:id/ads/next/:current_index', async (req, res) => {
                 array_to_json(string_to_array(ads.image_url, ',')) AS image_url,
                 ads.name AS seller_name,
                 ads.location_distance,
+                (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $3) AS is_like,
                 (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
                 (
                     SELECT json_agg(
                         json_build_object(
-                            'id', offers.id,
-                            'ads_id', a2.id,
-                            'ads_name', a2.name,
-                            'image_url', a2.image_url,
-                            'type', offers.type,
-                            'price', offers.price,
-                            'owner_name', users.name,
-                            'created_date', offers.created_date,
-                            'status', offers.status
+                            'id', id,
+                            'ads_id', ads_id,
+                            'ads_name', ads_name,
+                            'image_url', image_url,
+                            'type', type,
+                            'price', price,
+                            'owner_name', owner_name,
+                            'created_date', created_date,
+                            'status', status
                         )
+                    ) 
+                    FROM (
+                        SELECT offers.id,
+                            a2.id AS ads_id,
+                            a2.name as ads_name,
+                            array_to_json(string_to_array(a2.image_url, ',')) AS image_url,
+                            offers.type,
+                            offers.price,
+                            users.name AS owner_name,
+                            offers.created_date,
+                            offers.status
+                        FROM offers
+                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+                        LEFT JOIN users ON offers.owner_id = users.id
+                        WHERE target_ads_id = ads.id
                     )
-                    FROM offers
-                    LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
-                    LEFT JOIN users ON offers.owner_id = users.id
-                    WHERE target_ads_id = ads.id
                 ) AS offers
-                FROM ads
+            FROM ads
             WHERE ads.collection_id = $1
             ORDER BY ads.created_date ASC
         )
         WHERE row_num > $2
         LIMIT 1;`;
-        const values = [id, current_index];
+        const values = [id, current_index, current_user_id];
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ Success: false, Message: 'No next Ads found in this collection' });
+        }
+
+        res.json({ Success: true, Data: result.rows[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ Success: false, Message: 'Internal server error' });
+    }
+});
+
+// API lấy Ads trước đó trong Collection
+app.get('/api/v1/collections/:id/ads/previous/:current_index/:current_user_id', async (req, res) => {
+    const { id, current_index, current_user_id } = req.params;
+
+    try {
+        const query = `SELECT *
+        FROM
+        (
+            SELECT ROW_NUMBER() OVER (ORDER BY ads.created_date DESC) AS row_num,
+                ads.id,
+                ads.name,
+                ads.short_description,
+                ads.description,
+                array_to_json(string_to_array(ads.image_url, ',')) AS image_url,
+                ads.name AS seller_name,
+                ads.location_distance,
+                (SELECT CASE WHEN COUNT(1) > 0 THEN true ELSE false END FROM user_activities WHERE ads_id = ads.id AND user_id = $3) AS is_like,
+                (SELECT COUNT(1) FROM offers WHERE target_ads_id = ads.id) AS total_offer,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', id,
+                            'ads_id', ads_id,
+                            'ads_name', ads_name,
+                            'image_url', image_url,
+                            'type', type,
+                            'price', price,
+                            'owner_name', owner_name,
+                            'created_date', created_date,
+                            'status', status
+                        )
+                    ) 
+                    FROM (
+                        SELECT offers.id,
+                            a2.id AS ads_id,
+                            a2.name as ads_name,
+                            array_to_json(string_to_array(a2.image_url, ',')) AS image_url,
+                            offers.type,
+                            offers.price,
+                            users.name AS owner_name,
+                            offers.created_date,
+                            offers.status
+                        FROM offers
+                        LEFT JOIN ads a2 ON offers.source_ads_id = a2.id
+                        LEFT JOIN users ON offers.owner_id = users.id
+                        WHERE target_ads_id = ads.id
+                    )
+                ) AS offers
+            FROM ads
+            WHERE ads.collection_id = $1
+            ORDER BY ads.created_date ASC
+        )
+        WHERE row_num < $2
+        LIMIT 1;`;
+        const values = [id, current_index, current_user_id];
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ Success: false, Message: 'No previous Ads found in this collection' });
         }
 
         res.json({ Success: true, Data: result.rows[0] });

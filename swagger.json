@@ -53,7 +53,7 @@
                 }
             }
         },
-        "/api/v1/collections/{id}/ads/first": {
+        "/api/v1/collections/{id}/ads/first/{current_user_id}": {
             "get": {
                 "summary": "Get the first ad in a collection",
                 "description": "Retrieve the first ad in the specified collection",
@@ -66,6 +66,15 @@
                             "type": "integer"
                         },
                         "description": "ID of the collection"
+                    },
+                    {
+                        "name": "current_user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the user"
                     }
                 ],
                 "responses": {
@@ -111,7 +120,7 @@
                 }
             }
         },
-        "/api/v1/collections/{id}/ads/next/{current_index}": {
+        "/api/v1/collections/{id}/ads/next/{current_index}/{current_user_id}": {
             "get": {
                 "summary": "Get the next ad in a collection",
                 "description": "Retrieve the next ad in the specified collection after the current ad",
@@ -133,6 +142,91 @@
                             "type": "integer"
                         },
                         "description": "ID of the current ad"
+                    },
+                    {
+                        "name": "current_user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the user"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Success": {
+                                            "type": "boolean"
+                                        },
+                                        "Data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "title": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "created_date": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No next Ads found in this collection"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/v1/collections/{id}/ads/previous/{current_index}/{current_user_id}": {
+            "get": {
+                "summary": "Get the previous ad in a collection",
+                "description": "Retrieve the previous ad in the specified collection after the current ad",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the collection"
+                    },
+                    {
+                        "name": "current_index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the current ad"
+                    },
+                    {
+                        "name": "current_user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "ID of the user"
                     }
                 ],
                 "responses": {
